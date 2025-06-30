@@ -8,13 +8,13 @@ mongo_uri = MONGO_URI
 client = MongoClient(mongo_uri)
 db = client["vn-news"]  # Create or connect to a database
 news_collection = db["vn-news"]
-collection = db["vn-express"]  # Create or connect to a collection
+collection = db["vn-news"]  # Create or connect to a collection
 collection.create_index("src_id", unique=True)
 collection_detail = db["vn-express-detail"]
 
 vn_url = "https://vnexpress.net/"
 base_url = "http://127.0.0.1:5000/"
-detail_url = "http://127.0.0.1:5000/vn-vi/news/"
+detail_url = "http://127.0.0.1:5000/vn-vi/VNExpress/"
 
 
 def get_rss_list():
@@ -186,15 +186,20 @@ def insert_or_get_detail(link):
 
     title = soup.find("h1").get_text(strip=True)
     article_end = soup.find('span', id='article-end')
-    if article_end is None:
-        author = None
-    else:
+    author = soup.find('p', id='author')
+    if author:
+        author = author.get_text(strip=True)
+    elif article_end:
         p_tag = article_end.find_previous_sibling('p')
         author = p_tag.decode_contents() if p_tag else None
+    else:
+        author = ""
 
     description = soup.find("p", class_="description")
     description = str(description) if description else None
     content_div = soup.select_one(".fck_detail")
+    if content_div is None:
+        return None
 
     slide_show_tag = soup.find_all("div", class_="item_slide_show")
     video_show_tag = soup.find_all("div", class_="wrap_video")
@@ -242,3 +247,8 @@ def insert_or_get_detail(link):
     except BulkWriteError as bwe:
         inserted_count = bwe.details.get("nInserted", 0)
         print(f"Inserted error {inserted_count} new item.")
+
+if __name__ == "__main__":
+    rss_lst = get_rss_list()
+    for link in rss_lst:
+        insert_rss(vn_url + link)
